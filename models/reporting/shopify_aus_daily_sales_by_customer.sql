@@ -1,10 +1,10 @@
 {{ config (
-    alias = target.database + '_shopify_daily_sales_by_customer'
+    alias = target.database + '_shopify_aus_daily_sales_by_customer'
 )}}
 
 WITH orders AS 
     (SELECT *
-    FROM {{ ref('shopify_daily_sales_by_order') }}
+    FROM {{ ref('shopify_aus_daily_sales_by_order') }}
     ),
 
     refunds AS 
@@ -12,13 +12,13 @@ WITH orders AS
         customer_id, 
         COALESCE(SUM(refunded),0) as returns,
         COALESCE(SUM(net_payment),0) as net_payment
-    FROM {{ ref('shopify_daily_sales_by_transaction') }}
+    FROM {{ ref('shopify_aus_daily_sales_by_transaction') }}
     GROUP BY date, customer_id
     ),
 
     customers AS 
     (SELECT customer_id, customer_acquisition_date, customer_tags
-    FROM {{ ref('shopify_customers') }} 
+    FROM {{ ref('shopify_aus_customers') }} 
     ),
 
     sales AS 
