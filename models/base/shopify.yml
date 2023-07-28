@@ -23,6 +23,7 @@ sources:
       - name: refund
       - name: customer
       - name: customer_tag
+      - name: shop
 
 models:
   - name: shopify_aus_orders
