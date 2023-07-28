@@ -2,12 +2,14 @@
         refund_table_name,
         adjustment_table_name,
         line_refund_table_name,
-        transaction_table_name
+        transaction_table_name,
+        shop_table_name
         = 'shopify_raw_aus',
         'refund',
         'order_adjustment',
         'order_line_refund',
-        'transaction' -%}
+        'transaction',
+        'shop' -%}
 
 {%- set refund_selected_fields = [
     "id",
@@ -35,11 +37,28 @@
     "total_tax"
 ] -%}
 
+{%- set shop_selected_fields = [
+    "currency"
+] -%}
+
 {%- set refund_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'refund') -%}
 {%- set adjustment_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_adjustment') -%}
 {%- set line_refund_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_line_refund') -%}
+{%- set shop_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'shop') -%}
 
 WITH 
+    {% if var('currency') == 'USD' -%}
+    shop_raw_data AS 
+    ({{ dbt_utils.union_relations(relations = shop_raw_tables) }}),
+        
+    currency AS
+    (SELECT date, conversion_rate
+    FROM shop_raw_data LEFT JOIN utilities.currency USING (currency)
+    WHERE date <= current_date),
+    {%- endif -%}
+
+    {%- set conversion_rate = 1 if var('currency') != 'USD' else 'conversion_rate' %}
+
     -- To tackle the signal loss between Fivetran and Shopify transformations
     stellar_signal AS 
     (SELECT _fivetran_synced
@@ -134,11 +153,14 @@ WITH
         refund_id,
         refund_date,
         quantity_refund,
-        SUM(amount_discrepancy_refund) AS amount_discrepancy_refund,
-        tax_amount_discrepancy_refund,
-        SUM(amount_shipping_refund) AS amount_shipping_refund,
-        SUM(tax_amount_shipping_refund) AS tax_amount_shipping_refund,
-        subtotal_refund,
-        total_tax_refund
+        SUM(amount_discrepancy_refund::float*{{ conversion_rate }}::float) AS amount_discrepancy_refund,
+        tax_amount_discrepancy_refund::float*{{ conversion_rate }}::float AS tax_amount_discrepancy_refund,
+        SUM(amount_shipping_refund::float*{{ conversion_rate }}::float) AS amount_shipping_refund,
+        SUM(tax_amount_shipping_refund::float*{{ conversion_rate }}::float) AS tax_amount_shipping_refund,
+        subtotal_refund::float*{{ conversion_rate }}::float AS subtotal_refund,
+        total_tax_refund::float*{{ conversion_rate }}::float AS total_tax_refund
     FROM refund_adjustment_line_refund
+    {%- if var('currency') == 'USD' %}
+    LEFT JOIN currency ON refund_adjustment_line_refund.refund_date::date = currency.date
+    {%- endif %}
     GROUP BY 1,2,3,4,6,9,10
