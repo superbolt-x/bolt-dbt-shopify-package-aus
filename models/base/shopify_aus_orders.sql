@@ -5,7 +5,8 @@
         tag_table_name,
         refund_table_name,
         adjustment_table_name,
-        line_refund_table_name
+        line_refund_table_name,
+        shop_table_name
         = 'shopify_raw_aus', 
         'order', 
         'order_discount_code', 
@@ -13,7 +14,8 @@
         'order_tag',
         'refund',
         'order_adjustment',
-        'order_line_refund' -%}
+        'order_line_refund',
+        'shop' -%}
         
 {%- set order_selected_fields = [
     "id",
@@ -98,6 +100,10 @@
     "total_tax"
 ] -%}
 
+{%- set shop_selected_fields = [
+    "currency"
+] -%}
+
 {%- set order_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order') -%}
 {%- set discount_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_discount_code') -%}
 {%- set shipping_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_shipping_line') -%}
@@ -105,8 +111,21 @@
 {%- set refund_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'refund') -%}
 {%- set adjustment_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_adjustment') -%}
 {%- set line_refund_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_line_refund') -%}
+{%- set shop_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'shop') -%}
 
 WITH 
+    {% if var('currency') == 'USD' -%}
+    shop_raw_data AS 
+    ({{ dbt_utils.union_relations(relations = shop_raw_tables) }}),
+        
+    currency AS
+    (SELECT date, conversion_rate
+    FROM shop_raw_data LEFT JOIN utilities.currency USING (currency)
+    WHERE date <= current_date),
+    {%- endif -%}
+
+    {%- set conversion_rate = 1 if var('currency') != 'USD' else 'conversion_rate' %}
+        
     -- To tackle the signal loss between Fivetran and Shopify transformations
     stellar_signal AS 
     (SELECT _fivetran_synced
@@ -256,7 +275,76 @@ WITH
     GROUP BY order_id
     )
 
-SELECT *,
+{%- set order_fields = [
+    "order_id",
+    "order_name",
+    "customer_id",
+    "email",
+    "created_at",
+    "updated_at",
+    "cancelled_at",
+    "financial_status",
+    "fulfillment_status",
+    "currency",
+    "gross_revenue",
+    "total_discounts",
+    "subtotal_revenue",
+    "total_tax",
+    "total_revenue",
+    "total_revenue_usd",
+    "current_total_discounts",
+    "current_subtotal_price",
+    "current_total_tax",
+    "current_total_price",
+    "source_name",
+    "referring_site",
+    "landing_site_base_url",
+    "shipping_address_first_name",
+    "shipping_address_last_name",
+    "shipping_address_company",
+    "shipping_address_phone",
+    "shipping_address_address_1",
+    "shipping_address_address_2",
+    "shipping_address_city",
+    "shipping_address_country",
+    "shipping_address_country_code",
+    "shipping_address_province",
+    "shipping_address_province_code",
+    "shipping_address_zip",
+    "billing_address_first_name",
+    "billing_address_last_name",
+    "billing_address_company",
+    "billing_address_phone",
+    "billing_address_address_1",
+    "billing_address_address_2",
+    "billing_address_city",
+    "billing_address_country",
+    "billing_address_country_code",
+    "billing_address_province",
+    "billing_address_province_code",
+    "billing_address_zip",
+    "discount_code",
+    "shipping_title",
+    "shipping_price",
+    "discounted_shipping_price",
+    "shipping_discounts",
+    "order_tags",
+    "subtotal_order_refund",
+    "subtotal_line_refund",
+    "shipping_refund",
+    "tax_refund"
+] -%}
+
+SELECT 
+    {%- for field in order_fields -%}
+        {%- if ('price' in field or 'revenue' in field or 'discounts' in field or 'total' in field or 'refund' in field) %}
+        "{{ field }}"::float*{{ conversion_rate }}::float as "{{ field }}",
+        {%- elif field == 'currency' %}
+        'USD' as currency,
+        {%- else %}
+        "{{ field }}",
+        {%- endif -%}
+    {%- endfor %}
     created_at::date as order_date, 
     {{ get_date_parts('order_date') }},
     COALESCE(total_discounts/NULLIF(gross_revenue,0),0) as discount_rate,
@@ -270,3 +358,6 @@ LEFT JOIN discount USING(order_id)
 LEFT JOIN shipping USING(order_id)
 LEFT JOIN tags USING(order_id)
 LEFT JOIN refund USING(order_id)
+{%- if var('currency') == 'USD' %}
+    LEFT JOIN currency ON orders.created_at::date = currency.date
+{%- endif %}
