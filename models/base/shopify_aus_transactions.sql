@@ -45,8 +45,8 @@ WITH
     (SELECT 
         order_id, 
         created_at::date as transaction_date,
-        COALESCE(SUM(CASE WHEN kind in ('sale','authorization') THEN transaction_amount END),0)::float*{{ conversion_rate }}::float as paid_by_customer,
-        COALESCE(SUM(CASE WHEN kind = 'refund' THEN transaction_amount END),0)::float*{{ conversion_rate }}::float as refunded
+        COALESCE(SUM(CASE WHEN kind in ('sale','authorization') THEN transaction_amount END),0)::float/{{ conversion_rate }}::float as paid_by_customer,
+        COALESCE(SUM(CASE WHEN kind = 'refund' THEN transaction_amount END),0)::float/{{ conversion_rate }}::float as refunded
     FROM raw_table
     {%- if var('currency') == 'USD' %}
     LEFT JOIN currency ON raw_table.created_at::date = currency.date
