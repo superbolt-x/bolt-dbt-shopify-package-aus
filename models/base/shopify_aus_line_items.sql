@@ -130,7 +130,7 @@ WITH
 SELECT 
     {%- for field in item_fields -%}
         {%- if ('price' in field or 'refund' in field) %}
-        "{{ field }}"::float*{{ conversion_rate }}::float as "{{ field }}",
+        "{{ field }}"::float/{{ conversion_rate }}::float as "{{ field }}",
         {%- else %}
         "{{ field }}",
         {%- endif -%}
