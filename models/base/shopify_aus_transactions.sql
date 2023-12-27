@@ -44,12 +44,12 @@ WITH
     staging AS 
     (SELECT 
         order_id, 
-        created_at::date as transaction_date,
+        processed_at::date as transaction_date,
         COALESCE(SUM(CASE WHEN kind in ('sale','authorization') THEN transaction_amount END),0)::float/{{ conversion_rate }}::float as paid_by_customer,
         COALESCE(SUM(CASE WHEN kind = 'refund' THEN transaction_amount END),0)::float/{{ conversion_rate }}::float as refunded
     FROM raw_table
     {%- if var('currency') == 'USD' %}
-    LEFT JOIN currency ON raw_table.created_at::date = currency.date
+    LEFT JOIN currency ON raw_table.processed_at::date = currency.date
     {%- endif %}
     WHERE status = 'success'
     GROUP BY order_id, transaction_date)
