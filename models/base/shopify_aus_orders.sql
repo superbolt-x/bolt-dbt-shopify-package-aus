@@ -23,6 +23,7 @@
     "customer_id",
     "email",
     "created_at",
+    "processed_at",
     "updated_at",
     "cancelled_at",
     "financial_status",
@@ -281,6 +282,7 @@ WITH
     "customer_id",
     "email",
     "created_at",
+    "processed_at",
     "updated_at",
     "cancelled_at",
     "financial_status",
@@ -351,7 +353,7 @@ SELECT
     -- exclude cancelled orders vs Shopify includes cancelled orders
     MIN(CASE WHEN cancelled_at IS NULL THEN order_date END) OVER (PARTITION BY customer_id) as customer_first_order_date,
     MAX(CASE WHEN cancelled_at IS NULL THEN order_date END) OVER (PARTITION BY customer_id) as customer_last_order_date, 
-    CASE WHEN cancelled_at IS NULL THEN ROW_NUMBER() OVER (PARTITION BY customer_id, cancelled_at IS NULL ORDER BY created_at) END as customer_order_index,
+    CASE WHEN cancelled_at IS NULL THEN ROW_NUMBER() OVER (PARTITION BY customer_id, cancelled_at IS NULL ORDER BY order_date) END as customer_order_index,
     order_id as unique_key
 FROM orders 
 LEFT JOIN discount USING(order_id)
@@ -359,5 +361,5 @@ LEFT JOIN shipping USING(order_id)
 LEFT JOIN tags USING(order_id)
 LEFT JOIN refund USING(order_id)
 {%- if var('currency') == 'USD' %}
-    LEFT JOIN currency ON orders.created_at::date = currency.date
+    LEFT JOIN currency ON orders.order_date::date = currency.date
 {%- endif %}
