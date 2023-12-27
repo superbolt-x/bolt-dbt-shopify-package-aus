@@ -361,5 +361,5 @@ LEFT JOIN shipping USING(order_id)
 LEFT JOIN tags USING(order_id)
 LEFT JOIN refund USING(order_id)
 {%- if var('currency') == 'USD' %}
-    LEFT JOIN currency ON orders.order_date::date = currency.date
+    LEFT JOIN currency ON orders.processed_at::date = currency.date
 {%- endif %}
