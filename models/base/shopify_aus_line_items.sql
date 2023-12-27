@@ -7,7 +7,8 @@
 
 {%- set order_selected_fields = [
     "id",
-    "created_at"
+    "created_at",
+    "processed_at"
 ] -%}
         
 {%- set item_selected_fields = [
@@ -142,5 +143,5 @@ FROM items
 LEFT JOIN refund USING(order_line_id)
 {%- if var('currency') == 'USD' %}
     LEFT JOIN orders USING (order_id)
-    LEFT JOIN currency ON orders.created_at::date = currency.date
+    LEFT JOIN currency ON orders.processed_at::date = currency.date
 {%- endif %}
