@@ -17,7 +17,7 @@ WITH giftcard_deduction AS
             order_id, 
             SUM(quantity) as items_count,
             COALESCE(SUM(CASE WHEN gift_card is true THEN quantity END),0) as giftcard_count,
-            COALESCE(SUM(CASE WHEN gift_card is true THEN price * quantity END),0) as giftcard_deduction
+            COALESCE(SUM(CASE WHEN gift_card is true THEN pre_tax_price * quantity END),0) as giftcard_deduction
         FROM {{ ref('shopify_aus_line_items') }}
         GROUP BY 1)
     ),
