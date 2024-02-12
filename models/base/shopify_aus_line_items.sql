@@ -10,7 +10,7 @@
     "title",
     "variant_title",
     "name",
-    "pre_tax_price",
+    "price",
     "quantity",
     "sku",
     "fulfillable_quantity",
@@ -58,7 +58,7 @@ WITH order_line_raw_data AS
 
 SELECT *,
     quantity - refund_quantity as net_quantity,
-    pre_tax_price * quantity - refund_subtotal as net_subtotal,
+    price * quantity - refund_subtotal as net_subtotal,
     order_line_id as unique_key
 FROM items 
 LEFT JOIN refund USING(order_line_id)
