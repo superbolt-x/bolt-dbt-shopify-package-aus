@@ -10,7 +10,8 @@
     "title",
     "variant_title",
     "name",
-    "price",
+    "pre_tax_price",
+    "total_discount",
     "quantity",
     "sku",
     "fulfillable_quantity",
@@ -57,6 +58,7 @@ WITH order_line_raw_data AS
     )
 
 SELECT *,
+    (pre_tax_price::float+total_discount::float)/quantity::float as price,
     quantity - refund_quantity as net_quantity,
     price * quantity - refund_subtotal as net_subtotal,
     order_line_id as unique_key
