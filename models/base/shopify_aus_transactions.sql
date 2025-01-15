@@ -19,7 +19,7 @@
         = 'shopify_raw_aus', 'transaction', 'shop' -%}
 
 WITH 
-    {% if var('currency') == 'USD' -%}
+    {% if var('sho_aus_currency') == 'USD' -%}
     shop_raw_data AS 
     ({{ dbt_utils.union_relations(relations = shop_raw_tables) }}),
         
@@ -29,7 +29,7 @@ WITH
     WHERE date <= current_date),
     {%- endif -%}
 
-    {%- set conversion_rate = 1 if var('currency') != 'USD' else 'conversion_rate' %}
+    {%- set conversion_rate = 1 if var('sho_aus_currency') != 'USD' else 'conversion_rate' %}
     
     raw_table AS 
     (SELECT 
@@ -48,7 +48,7 @@ WITH
         COALESCE(SUM(CASE WHEN kind in ('sale','authorization') THEN transaction_amount END),0)::float/{{ conversion_rate }}::float as paid_by_customer,
         COALESCE(SUM(CASE WHEN kind = 'refund' THEN transaction_amount END),0)::float/{{ conversion_rate }}::float as refunded
     FROM raw_table
-    {%- if var('currency') == 'USD' %}
+    {%- if var('sho_aus_currency') == 'USD' %}
     LEFT JOIN currency ON raw_table.processed_at::date = currency.date
     {%- endif %}
     WHERE status = 'success'
