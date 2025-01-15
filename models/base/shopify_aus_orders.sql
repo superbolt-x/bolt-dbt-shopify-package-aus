@@ -115,7 +115,7 @@
 {%- set shop_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'shop') -%}
 
 WITH 
-    {% if var('currency') == 'USD' -%}
+    {% if var('sho_aus_currency') == 'USD' -%}
     shop_raw_data AS 
     ({{ dbt_utils.union_relations(relations = shop_raw_tables) }}),
         
@@ -125,7 +125,7 @@ WITH
     WHERE date <= current_date),
     {%- endif -%}
 
-    {%- set conversion_rate = 1 if var('currency') != 'USD' else 'conversion_rate' %}
+    {%- set conversion_rate = 1 if var('sho_aus_currency') != 'USD' else 'conversion_rate' %}
         
     -- To tackle the signal loss between Fivetran and Shopify transformations
     stellar_signal AS 
@@ -360,6 +360,6 @@ LEFT JOIN discount USING(order_id)
 LEFT JOIN shipping USING(order_id)
 LEFT JOIN tags USING(order_id)
 LEFT JOIN refund USING(order_id)
-{%- if var('currency') == 'USD' %}
+{%- if var('sho_aus_currency') == 'USD' %}
     LEFT JOIN currency ON orders.processed_at::date = currency.date
 {%- endif %}
