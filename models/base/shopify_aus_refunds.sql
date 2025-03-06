@@ -74,6 +74,20 @@ WITH
     LIMIT 1
     ),
 
+    order_raw_data AS 
+    ({{ dbt_utils.union_relations(relations = order_raw_tables) }}),
+
+    order_staging AS 
+    (SELECT 
+
+        {% for field in order_selected_fields -%}
+        {{ get_shopify_clean_field(order_table_name, field)}}
+        {%- if not loop.last %},{% endif %}
+        {% endfor %}
+
+    FROM order_raw_data
+    ),
+
     refund_raw_data AS 
     ({{ dbt_utils.union_relations(relations = refund_raw_tables) }}),
 
