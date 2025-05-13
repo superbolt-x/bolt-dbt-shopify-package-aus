@@ -292,7 +292,6 @@ WITH
     "subtotal_revenue",
     "total_tax",
     "total_revenue",
-    "total_revenue_usd",
     "current_total_discounts",
     "current_subtotal_price",
     "current_total_tax",
