@@ -15,6 +15,7 @@
 
 {%- set order_selected_fields = [
     "id",
+    "currency",
     "shipping_address_country_code"
 ] -%}
         
@@ -176,12 +177,12 @@ WITH
         refund_date,
         quantity_refund,
         shipping_address_country_code,
-        SUM(amount_discrepancy_refund::float/{{ conversion_rate }}::float) AS amount_discrepancy_refund,
-        tax_amount_discrepancy_refund::float/{{ conversion_rate }}::float AS tax_amount_discrepancy_refund,
-        SUM(amount_shipping_refund::float/{{ conversion_rate }}::float) AS amount_shipping_refund,
-        SUM(tax_amount_shipping_refund::float/{{ conversion_rate }}::float) AS tax_amount_shipping_refund,
-        subtotal_refund::float/{{ conversion_rate }}::float AS subtotal_refund,
-        total_tax_refund::float/{{ conversion_rate }}::float AS total_tax_refund
+        SUM(case when order_staging.currency = 'USD' then amount_discrepancy_refund else amount_discrepancy_refund::float/{{ conversion_rate }}::float end) AS amount_discrepancy_refund,
+        case when order_staging.currency = 'USD' then tax_amount_discrepancy_refund else tax_amount_discrepancy_refund::float/{{ conversion_rate }}::float end AS tax_amount_discrepancy_refund,
+        SUM(case when order_staging.currency = 'USD' then amount_shipping_refund else amount_shipping_refund::float/{{ conversion_rate }}::float end) AS amount_shipping_refund,
+        SUM(case when order_staging.currency = 'USD' then tax_amount_shipping_refund else tax_amount_shipping_refund::float/{{ conversion_rate }}::float end) AS tax_amount_shipping_refund,
+        case when order_staging.currency = 'USD' then subtotal_refund else subtotal_refund::float/{{ conversion_rate }}::float end AS subtotal_refund,
+        case when order_staging.currency = 'USD' then total_tax_refund else total_tax_refund::float/{{ conversion_rate }}::float end AS total_tax_refund
     FROM refund_adjustment_line_refund
     LEFT JOIN order_staging USING(order_id)
     {%- if var('sho_aus_currency') == 'USD' %}
