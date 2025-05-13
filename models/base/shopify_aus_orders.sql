@@ -340,7 +340,7 @@ WITH
 SELECT 
     {%- for field in order_fields -%}
         {%- if ('price' in field or 'revenue' in field or 'discounts' in field or 'total' in field or 'refund' in field) %}
-        "{{ field }}"::float/{{ conversion_rate }}::float as "{{ field }}",
+        case when orders.currency = 'USD' then "{{ field }}"::float else "{{ field }}"::float/{{ conversion_rate }}::float end as "{{ field }}",
         {%- elif field == 'currency' %}
         'USD' as currency,
         {%- else %}
