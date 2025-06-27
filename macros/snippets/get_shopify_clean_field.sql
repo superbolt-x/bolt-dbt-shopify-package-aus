@@ -77,6 +77,9 @@
     {%- elif column_name == 'total_discount' -%}
         {{column_name}} as line_{{column_name}}
 
+    {%- elif column_name == 'price' -%}
+        {{column_name}} as line_{{column_name}}
+
     {%- else -%}
     {{column_name}}
 
