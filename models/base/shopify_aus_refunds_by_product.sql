@@ -249,49 +249,49 @@ SELECT
     -- Normalize all amounts into reporting currency
     SUM(
         CASE 
-            WHEN o.currency = var('sho_aus_currency') THEN rlr.amount_discrepancy_refund
-            WHEN o.currency = 'USD' AND var('sho_aus_currency') = 'AUD' THEN rlr.amount_discrepancy_refund * currency.conversion_rate
-            WHEN o.currency = 'AUD' AND var('sho_aus_currency') = 'USD' THEN rlr.amount_discrepancy_refund / NULLIF(currency.conversion_rate,0)
+            WHEN o.currency = '{{ var("sho_aus_currency") }}' THEN rlr.amount_discrepancy_refund
+            WHEN o.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN rlr.amount_discrepancy_refund * currency.conversion_rate
+            WHEN o.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN rlr.amount_discrepancy_refund / NULLIF(currency.conversion_rate,0)
         END
     ) AS amount_discrepancy_refund,
 
     SUM(
         CASE 
-            WHEN o.currency = var('sho_aus_currency') THEN rlr.tax_amount_discrepancy_refund
-            WHEN o.currency = 'USD' AND var('sho_aus_currency') = 'AUD' THEN rlr.tax_amount_discrepancy_refund * currency.conversion_rate
-            WHEN o.currency = 'AUD' AND var('sho_aus_currency') = 'USD' THEN rlr.tax_amount_discrepancy_refund / NULLIF(currency.conversion_rate,0)
+            WHEN o.currency = '{{ var("sho_aus_currency") }}' THEN rlr.tax_amount_discrepancy_refund
+            WHEN o.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN rlr.tax_amount_discrepancy_refund * currency.conversion_rate
+            WHEN o.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN rlr.tax_amount_discrepancy_refund / NULLIF(currency.conversion_rate,0)
         END
     ) AS tax_amount_discrepancy_refund,
 
     SUM(
         CASE 
-            WHEN o.currency = var('sho_aus_currency') THEN rlr.amount_shipping_refund
-            WHEN o.currency = 'USD' AND var('sho_aus_currency') = 'AUD' THEN rlr.amount_shipping_refund * currency.conversion_rate
-            WHEN o.currency = 'AUD' AND var('sho_aus_currency') = 'USD' THEN rlr.amount_shipping_refund / NULLIF(currency.conversion_rate,0)
+            WHEN o.currency = '{{ var("sho_aus_currency") }}' THEN rlr.amount_shipping_refund
+            WHEN o.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN rlr.amount_shipping_refund * currency.conversion_rate
+            WHEN o.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN rlr.amount_shipping_refund / NULLIF(currency.conversion_rate,0)
         END
     ) AS amount_shipping_refund,
 
     SUM(
         CASE 
-            WHEN o.currency = var('sho_aus_currency') THEN rlr.tax_amount_shipping_refund
-            WHEN o.currency = 'USD' AND var('sho_aus_currency') = 'AUD' THEN rlr.tax_amount_shipping_refund * currency.conversion_rate
-            WHEN o.currency = 'AUD' AND var('sho_aus_currency') = 'USD' THEN rlr.tax_amount_shipping_refund / NULLIF(currency.conversion_rate,0)
+            WHEN o.currency = '{{ var("sho_aus_currency") }}' THEN rlr.tax_amount_shipping_refund
+            WHEN o.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN rlr.tax_amount_shipping_refund * currency.conversion_rate
+            WHEN o.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN rlr.tax_amount_shipping_refund / NULLIF(currency.conversion_rate,0)
         END
     ) AS tax_amount_shipping_refund,
 
     SUM(
         CASE 
-            WHEN o.currency = var('sho_aus_currency') THEN rlr.subtotal_refund
-            WHEN o.currency = 'USD' AND var('sho_aus_currency') = 'AUD' THEN rlr.subtotal_refund * currency.conversion_rate
-            WHEN o.currency = 'AUD' AND var('sho_aus_currency') = 'USD' THEN rlr.subtotal_refund / NULLIF(currency.conversion_rate,0)
+            WHEN o.currency = '{{ var("sho_aus_currency") }}' THEN rlr.subtotal_refund
+            WHEN o.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN rlr.subtotal_refund * currency.conversion_rate
+            WHEN o.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN rlr.subtotal_refund / NULLIF(currency.conversion_rate,0)
         END
     ) AS subtotal_refund,
 
     SUM(
         CASE 
-            WHEN o.currency = var('sho_aus_currency') THEN rlr.total_tax_refund
-            WHEN o.currency = 'USD' AND var('sho_aus_currency') = 'AUD' THEN rlr.total_tax_refund * currency.conversion_rate
-            WHEN o.currency = 'AUD' AND var('sho_aus_currency') = 'USD' THEN rlr.total_tax_refund / NULLIF(currency.conversion_rate,0)
+            WHEN o.currency = '{{ var("sho_aus_currency") }}' THEN rlr.total_tax_refund
+            WHEN o.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN rlr.total_tax_refund * currency.conversion_rate
+            WHEN o.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN rlr.total_tax_refund / NULLIF(currency.conversion_rate,0)
         END
     ) AS total_tax_refund,
 
