@@ -130,8 +130,8 @@ SELECT
     (COALESCE((pre_tax_price::float + line_total_discount::float)/NULLIF(quantity::float,0),0) * quantity) - COALESCE(refund_subtotal,0) AS net_subtotal,
 
     '{{ var("sho_aus_currency") }}' as currency,
-    items.id as order_line_id,
-    items.id as unique_key
+    items.order_line_id as order_line_id,
+    items.order_line_id as unique_key
 
 FROM items 
 LEFT JOIN refund USING(order_line_id)
