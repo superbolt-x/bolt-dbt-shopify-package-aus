@@ -114,17 +114,21 @@
 {%- set shop_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'shop') -%}
 
 WITH 
-    {% if var('sho_aus_currency') == 'USD' -%}
+    {% if var('sho_aus_currency') in ['USD', 'AUD'] -%}
     shop_raw_data AS 
     ({{ dbt_utils.union_relations(relations = shop_raw_tables) }}),
-        
-    currency AS
-    (SELECT date, conversion_rate
-    FROM shop_raw_data LEFT JOIN utilities.currency USING (currency)
-    WHERE date <= current_date),
-    {%- endif -%}
 
-    {%- set conversion_rate = 1 if var('sho_aus_currency') != 'USD' else 'conversion_rate' %}
+    currency AS
+    (
+        SELECT 
+            date,
+            currency,
+            conversion_rate
+        FROM utilities.currency
+        WHERE date <= current_date
+          AND currency = 'AUD'
+    ),
+    {%- endif -%}
         
     -- To tackle the signal loss between Fivetran and Shopify transformations
     stellar_signal AS 
@@ -338,9 +342,21 @@ WITH
 SELECT 
     {%- for field in order_fields -%}
         {%- if ('price' in field or 'revenue' in field or 'discounts' in field or 'total' in field or 'refund' in field) %}
-        case when orders.currency = 'USD' then "{{ field }}"::float else "{{ field }}"::float/{{ conversion_rate }}::float end as "{{ field }}",
+        CASE 
+            -- keep same currency
+            WHEN orders.currency = var('sho_aus_currency') THEN "{{ field }}"::float
+
+            -- convert USD → AUD
+            WHEN orders.currency = 'USD' AND var('sho_aus_currency') = 'AUD' 
+                THEN "{{ field }}"::float * currency.conversion_rate::float
+
+            -- convert AUD → USD
+            WHEN orders.currency = 'AUD' AND var('sho_aus_currency') = 'USD' 
+                THEN "{{ field }}"::float / NULLIF(currency.conversion_rate,0)::float
+
+        END AS "{{ field }}",
         {%- elif field == 'currency' %}
-        'USD' as currency,
+        '{{ var("sho_aus_currency") }}' as currency,
         {%- else %}
         "{{ field }}",
         {%- endif -%}
@@ -358,6 +374,6 @@ LEFT JOIN discount USING(order_id)
 LEFT JOIN shipping USING(order_id)
 LEFT JOIN tags USING(order_id)
 LEFT JOIN refund USING(order_id)
-{%- if var('sho_aus_currency') == 'USD' %}
+{% if var('sho_aus_currency') in ['USD','AUD'] %}
     LEFT JOIN currency ON orders.processed_at::date = currency.date
-{%- endif %}
+{% endif %}
