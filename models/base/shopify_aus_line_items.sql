@@ -98,7 +98,19 @@ WITH
     )
 
 SELECT 
-    items.*,
+    items.order_id,
+    items.order_line_id,
+    items.product_id,
+    items.variant_id,
+    items.product_title,
+    items.variant_title,
+    items.item_title,
+    items.sku,
+    items.fulfillable_quantity,
+    items.fulfillment_status,
+    items.gift_card,
+    items.index,
+    items.quantity,
     order_staging.currency AS original_currency,
 
     -- normalized monetary fields
@@ -130,7 +142,6 @@ SELECT
     (COALESCE((pre_tax_price::float + line_total_discount::float)/NULLIF(quantity::float,0),0) * quantity) - COALESCE(refund_subtotal,0) AS net_subtotal,
 
     '{{ var("sho_aus_currency") }}' as currency,
-    items.order_line_id as order_line_id,
     items.order_line_id as unique_key
 
 FROM items 
