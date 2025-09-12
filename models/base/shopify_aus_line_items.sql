@@ -109,22 +109,15 @@ SELECT
     END AS pre_tax_price,
 
     CASE 
-        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN total_discount::float
-        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN total_discount::float * currency.conversion_rate
-        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN total_discount::float / NULLIF(currency.conversion_rate,0)
-    END AS total_discount,
+        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN line_total_discount::float
+        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN line_total_discount::float * currency.conversion_rate
+        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN line_total_discount::float / NULLIF(currency.conversion_rate,0)
+    END AS line_total_discount,
 
     quantity - COALESCE(refund_quantity,0) AS net_quantity,
 
     -- line price after conversion
-    CASE 
-        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' 
-            THEN (pre_tax_price::float + total_discount::float)/NULLIF(quantity::float,0)
-        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' 
-            THEN (pre_tax_price::float + total_discount::float)/NULLIF(quantity::float,0) * currency.conversion_rate
-        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' 
-            THEN (pre_tax_price::float + total_discount::float)/NULLIF(quantity::float,0) / NULLIF(currency.conversion_rate,0)
-    END AS price,
+   coalesce((pre_tax_price::float + line_total_discount::float)/NULLIF(quantity::float,0),0) AS price,
 
     -- refund subtotal normalized
     CASE 
@@ -134,14 +127,7 @@ SELECT
     END AS refund_subtotal,
 
     -- net subtotal normalized
-    CASE 
-        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' 
-            THEN ((pre_tax_price::float + total_discount::float)/NULLIF(quantity::float,0) * quantity) - COALESCE(refund_subtotal,0)
-        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' 
-            THEN ((pre_tax_price::float + total_discount::float)/NULLIF(quantity::float,0) * quantity - COALESCE(refund_subtotal,0)) * currency.conversion_rate
-        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' 
-            THEN ((pre_tax_price::float + total_discount::float)/NULLIF(quantity::float,0) * quantity - COALESCE(refund_subtotal,0)) / NULLIF(currency.conversion_rate,0)
-    END AS net_subtotal,
+    (COALESCE((pre_tax_price::float + line_total_discount::float)/NULLIF(quantity::float,0),0) * quantity) - COALESCE(refund_subtotal,0) AS net_subtotal,
 
     '{{ var("sho_aus_currency") }}' as currency,
     items.id as order_line_id,
