@@ -67,9 +67,9 @@ WITH
         COALESCE(SUM(
             CASE WHEN t.kind in ('sale','authorization') THEN 
                 CASE 
-                    WHEN o.currency = var('sho_aus_currency') THEN t.transaction_amount::float
-                    WHEN o.currency = 'USD' AND var('sho_aus_currency') = 'AUD' THEN t.transaction_amount::float * c.conversion_rate
-                    WHEN o.currency = 'AUD' AND var('sho_aus_currency') = 'USD' THEN t.transaction_amount::float / NULLIF(c.conversion_rate,0)
+                    WHEN o.currency = '{{ var("sho_aus_currency") }}' THEN t.transaction_amount::float
+                    WHEN o.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN t.transaction_amount::float * c.conversion_rate
+                    WHEN o.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN t.transaction_amount::float / NULLIF(c.conversion_rate,0)
                 END
             END
         ),0) as paid_by_customer,
@@ -78,9 +78,9 @@ WITH
         COALESCE(SUM(
             CASE WHEN t.kind = 'refund' THEN 
                 CASE 
-                    WHEN o.currency = var('sho_aus_currency') THEN t.transaction_amount::float
-                    WHEN o.currency = 'USD' AND var('sho_aus_currency') = 'AUD' THEN t.transaction_amount::float * c.conversion_rate
-                    WHEN o.currency = 'AUD' AND var('sho_aus_currency') = 'USD' THEN t.transaction_amount::float / NULLIF(c.conversion_rate,0)
+                    WHEN o.currency = '{{ var("sho_aus_currency") }}' THEN t.transaction_amount::float
+                    WHEN o.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN t.transaction_amount::float * c.conversion_rate
+                    WHEN o.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN t.transaction_amount::float / NULLIF(c.conversion_rate,0)
                 END
             END
         ),0) as refunded
