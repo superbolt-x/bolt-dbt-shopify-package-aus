@@ -111,6 +111,7 @@ SELECT
     items.gift_card,
     items.index,
     items.quantity,
+    refund.refund_quantity,
     order_staging.currency AS original_currency,
 
     -- normalized monetary fields
