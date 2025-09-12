@@ -344,14 +344,14 @@ SELECT
         {%- if ('price' in field or 'revenue' in field or 'discounts' in field or 'total' in field or 'refund' in field) %}
         CASE 
             -- keep same currency
-            WHEN orders.currency = var('sho_aus_currency') THEN "{{ field }}"::float
+            WHEN orders.currency = '{{ var("sho_aus_currency") }}' THEN "{{ field }}"::float
 
             -- convert USD → AUD
-            WHEN orders.currency = 'USD' AND var('sho_aus_currency') = 'AUD' 
+            WHEN orders.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' 
                 THEN "{{ field }}"::float * currency.conversion_rate::float
 
             -- convert AUD → USD
-            WHEN orders.currency = 'AUD' AND var('sho_aus_currency') = 'USD' 
+            WHEN orders.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' 
                 THEN "{{ field }}"::float / NULLIF(currency.conversion_rate,0)::float
 
         END AS "{{ field }}",
