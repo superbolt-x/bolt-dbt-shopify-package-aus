@@ -149,7 +149,7 @@ SELECT
 
 FROM items 
 LEFT JOIN refund USING(order_line_id)
-LEFT JOIN order_staging ON items.order_id = order_staging.id
+LEFT JOIN order_staging ON items.order_id = order_staging.order_id
 {% if var('sho_aus_currency') in ['USD','AUD'] %}
     LEFT JOIN currency ON CURRENT_DATE = currency.date
 {% endif %}
