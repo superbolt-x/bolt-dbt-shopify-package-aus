@@ -1,8 +1,9 @@
 {%- set schema_name,
         item_table_name, 
         item_fund_table_name,
-        order_table_name
-        = 'shopify_raw_aus', 'order_line', 'order_line_refund', 'order' -%}
+        order_table_name,
+        item_tax_table_name
+        = 'shopify_raw_aus', 'order_line', 'order_line_refund', 'order', 'tax_line' -%}
 
 {%- set item_selected_fields = [
     "order_id",
@@ -34,9 +35,15 @@
     "currency"
 ] -%}
 
+{%- set tax_selected_fields = [
+    "order_line_id",
+    "price"
+] -%}
+
 {%- set order_line_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_line') -%}
 {%- set order_line_refund_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_line_refund') -%}
 {%- set order_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order') -%}
+{%- set tax_line_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'tax_line') -%}
 
 WITH 
     {% if var('sho_aus_currency') in ['USD','AUD'] -%}
@@ -74,6 +81,26 @@ WITH
         {%- if not loop.last %},{% endif %}
         {% endfor %}
     FROM order_line_raw_data
+    ),
+
+    tax_line_raw_data AS 
+    ({{ dbt_utils.union_relations(relations = tax_line_raw_tables) }}),
+
+    tax_line_raw AS 
+    (SELECT 
+        {% for column in tax_selected_fields -%}
+        {{ get_shopify_clean_field(item_tax_table_name, column)}}
+        {%- if not loop.last %},{% endif %}
+        {% endfor %}
+    FROM tax_line_raw_data
+    ),
+
+    tax_line AS 
+    (SELECT 
+        order_line_id,
+        SUM(price) as tax_price
+    FROM tax_line_raw
+    GROUP BY order_line_id
     ),
 
     order_line_refund_raw_data AS 
@@ -116,9 +143,9 @@ SELECT
 
     -- normalized monetary fields
     CASE 
-        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN pre_tax_price::float
-        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN pre_tax_price::float * currency.conversion_rate
-        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN pre_tax_price::float / NULLIF(currency.conversion_rate,0)
+        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN (price::float*quantity::float-tax_price::float)
+        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN (price::float*quantity::float-tax_price::float) * currency.conversion_rate
+        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN (price::float*quantity::float-tax_price::float) / NULLIF(currency.conversion_rate,0)
     END AS pre_tax_price,
 
     CASE 
@@ -147,6 +174,7 @@ SELECT
 
 FROM items 
 LEFT JOIN refund USING(order_line_id)
+LEFT JOIN tax_line USING(order_line_id)
 LEFT JOIN order_staging ON items.order_id = order_staging.order_id
 {% if var('sho_aus_currency') in ['USD','AUD'] %}
     LEFT JOIN currency ON CURRENT_DATE = currency.date
