@@ -13,6 +13,7 @@
     "title",
     "variant_title",
     "name",
+    "price",
     "pre_tax_price",
     "total_discount",
     "quantity",
