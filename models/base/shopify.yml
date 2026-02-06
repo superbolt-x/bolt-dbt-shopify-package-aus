@@ -24,6 +24,7 @@ sources:
       - name: customer
       - name: customer_tag
       - name: shop
+      - name: tax_line
 
 models:
   - name: shopify_aus_orders
