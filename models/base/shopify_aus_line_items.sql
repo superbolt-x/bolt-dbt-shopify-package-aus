@@ -53,7 +53,7 @@ WITH
         SELECT 
             date,
             currency,
-            conversion_rate
+            conversion_rate::float as conversion_rate
         FROM utilities.currency
         WHERE date <= current_date
           AND currency = 'AUD'
