@@ -2,6 +2,7 @@
     alias = target.database + '_shopify_aus_daily_sales_by_order_line_item',
     materialized='incremental',
     unique_key='unique_key',
+    incremental_strategy='delete+insert',
     on_schema_change='append_new_columns'
 )}}
 
@@ -9,6 +10,11 @@
 WITH orders AS
     (SELECT *
     FROM {{ ref('shopify_aus_daily_sales_by_order') }}
+    {%- if is_incremental() %}
+    -- 30-day lookback, same window as shopify_aus_daily_sales_by_order. Run --full-refresh
+    -- periodically for late changes (refunds/cancellations outside the window).
+    WHERE date >= (select max(date)-30 from {{ this }})
+    {%- endif %}
     ),
 
     line_items AS
