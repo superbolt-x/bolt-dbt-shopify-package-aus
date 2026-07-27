@@ -1,8 +1,17 @@
 {{ config (
-    alias = target.database + '_shopify_aus_sales'
+    alias = target.database + '_shopify_aus_sales',
+    materialized = 'incremental',
+    unique_key = 'unique_key',
+    incremental_strategy = 'delete+insert',
+    on_schema_change = 'append_new_columns'
 )}}
 
 {%- set date_granularity_list = ['day','week','month','quarter','year'] -%}
+
+{#- Reprocess from the start of the year containing (max date - 30d). Reading whole
+    periods keeps the week/month/quarter/year roll-ups complete; data older than the
+    30-day lookback does not change. Run with --full-refresh periodically to refresh
+    historical rows affected by late changes outside the window. -#}
 
 WITH 
     {%- for date_granularity in date_granularity_list %}
@@ -17,6 +26,9 @@ WITH
         SUM(COALESCE(subtotal_refund,0)-COALESCE(shipping_refund,0)-COALESCE(tax_refund,0)) as total_refund
     FROM {{ ref('shopify_aus_daily_refunds') }}
     WHERE cancelled_at is null
+    {%- if is_incremental() %}
+    AND date >= date_trunc('year', (select dateadd(day,-30,max(date)) from {{ ref('shopify_aus_daily_sales_by_order') }}))::date
+    {%- endif %}
     GROUP BY date_granularity, {{date_granularity}}
     ),
 
@@ -49,6 +61,9 @@ WITH
         COALESCE(SUM(CASE WHEN customer_order_index > 1 THEN subtotal_revenue+COALESCE(total_tax,0)+COALESCE(shipping_price,0) END),0) as repeat_order_total_sales
     FROM {{ ref('shopify_aus_daily_sales_by_order') }}
     WHERE cancelled_at is null
+    {%- if is_incremental() %}
+    AND date >= date_trunc('year', (select dateadd(day,-30,max(date)) from {{ ref('shopify_aus_daily_sales_by_order') }}))::date
+    {%- endif %}
     GROUP BY date_granularity, {{date_granularity}})
     {%- if not loop.last %},{%- endif %}
     {%- endfor %}
@@ -60,7 +75,8 @@ SELECT
     coalesce(r.shipping_refund,0) as shipping_returns,
     coalesce(r.tax_refund,0) as tax_returns,
     s.subtotal_sales - coalesce(r.subtotal_refund,0) as net_sales,
-    s.total_sales - coalesce(r.total_refund,0) as total_net_sales
+    s.total_sales - coalesce(r.total_refund,0) as total_net_sales,
+    date_granularity||'_'||date as unique_key
 FROM sales_{{date_granularity}} s
 LEFT JOIN refunds_{{date_granularity}} r USING(date_granularity, date)
 {% if not loop.last %}UNION ALL
