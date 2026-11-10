@@ -3,19 +3,16 @@
         refund_table_name,
         adjustment_table_name,
         line_refund_table_name,
-        transaction_table_name,
-        shop_table_name
+        transaction_table_name
         = 'shopify_raw_aus',
         'order',
         'refund',
         'order_adjustment',
         'order_line_refund',
-        'transaction',
-        'shop' -%}
+        'transaction' -%}
 
 {%- set order_selected_fields = [
     "id",
-    "currency",
     "shipping_address_country_code"
 ] -%}
         
@@ -44,34 +41,12 @@
     "subtotal",
     "total_tax"
 ] -%}
-
-{%- set shop_selected_fields = [
-    "currency"
-] -%}
-
+        
 {%- set order_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order') -%}
 {%- set refund_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'refund') -%}
 {%- set adjustment_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_adjustment') -%}
-{%- set line_refund_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'order_line_refund') -%}
-{%- set shop_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'shop') -%}
 
 WITH 
-    {% if var('sho_aus_currency') in ['USD','AUD'] -%}
-    shop_raw_data AS 
-    ({{ dbt_utils.union_relations(relations = shop_raw_tables) }}),
-
-    currency AS
-    (
-        SELECT 
-            date,
-            currency,
-            conversion_rate::float as conversion_rate
-        FROM utilities.currency
-        WHERE date <= current_date
-          AND currency = 'AUD'
-    ),
-    {%- endif -%}
-
     -- To tackle the signal loss between Fivetran and Shopify transformations
     stellar_signal AS 
     (SELECT _fivetran_synced
@@ -122,7 +97,7 @@ WITH
     ),
 
     line_refund_raw_data AS 
-    ({{ dbt_utils.union_relations(relations = line_refund_raw_tables) }}),
+    ({{ get_shopify_refund_line_items() }}),
 
     line_refund_staging AS 
     (SELECT 
@@ -154,8 +129,7 @@ WITH
         CASE WHEN refund_kind ~* 'refund_discrepancy' THEN COALESCE(refund_tax_amount,0) ELSE 0 END AS tax_amount_discrepancy_refund,
         CASE WHEN refund_kind ~* 'shipping_refund' THEN COALESCE(refund_amount,0) ELSE 0 END AS amount_shipping_refund,
         CASE WHEN refund_kind ~* 'shipping_refund' THEN COALESCE(refund_tax_amount,0) ELSE 0 END AS tax_amount_shipping_refund
-    FROM refund_staging 
-    LEFT JOIN adjustment_staging USING(refund_id)
+        FROM refund_staging LEFT JOIN adjustment_staging USING(refund_id)
     ),
 
     refund_adjustment_line_refund AS 
@@ -170,65 +144,27 @@ WITH
         tax_amount_shipping_refund,
         COALESCE(subtotal_refund,0) AS subtotal_refund,
         COALESCE(total_tax_refund,0) AS total_tax_refund
-    FROM refund_adjustment
-    LEFT JOIN line_refund USING(refund_id)
+        FROM refund_adjustment
+        LEFT JOIN line_refund USING(refund_id)
+        --LEFT JOIN shopify_raw_aus.order ON (order_id = id)
+        --WHERE cancelled_at is null
     )
 
-SELECT 
-    order_id, 
-    refund_id,
-    refund_date,
-    quantity_refund,
-    shipping_address_country_code,
-
-    -- discrepancy
-    SUM(
-        CASE 
-            WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN amount_discrepancy_refund
-            WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN amount_discrepancy_refund * currency.conversion_rate
-            WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN amount_discrepancy_refund / NULLIF(currency.conversion_rate,0)
-        END
-    ) AS amount_discrepancy_refund,
-
-    CASE 
-        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN tax_amount_discrepancy_refund
-        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN tax_amount_discrepancy_refund * currency.conversion_rate
-        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN tax_amount_discrepancy_refund / NULLIF(currency.conversion_rate,0)
-    END AS tax_amount_discrepancy_refund,
-
-    -- shipping
-    SUM(
-        CASE 
-            WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN amount_shipping_refund
-            WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN amount_shipping_refund * currency.conversion_rate
-            WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN amount_shipping_refund / NULLIF(currency.conversion_rate,0)
-        END
-    ) AS amount_shipping_refund,
-
-    SUM(
-        CASE 
-            WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN tax_amount_shipping_refund
-            WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN tax_amount_shipping_refund * currency.conversion_rate
-            WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN tax_amount_shipping_refund / NULLIF(currency.conversion_rate,0)
-        END
-    ) AS tax_amount_shipping_refund,
-
-    -- subtotal + tax
-    CASE 
-        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN subtotal_refund
-        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN subtotal_refund * currency.conversion_rate
-        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN subtotal_refund / NULLIF(currency.conversion_rate,0)
-    END AS subtotal_refund,
-
-    CASE 
-        WHEN order_staging.currency = '{{ var("sho_aus_currency") }}' THEN total_tax_refund
-        WHEN order_staging.currency = 'USD' AND '{{ var("sho_aus_currency") }}' = 'AUD' THEN total_tax_refund * currency.conversion_rate
-        WHEN order_staging.currency = 'AUD' AND '{{ var("sho_aus_currency") }}' = 'USD' THEN total_tax_refund / NULLIF(currency.conversion_rate,0)
-    END AS total_tax_refund
-
-FROM refund_adjustment_line_refund
-LEFT JOIN order_staging USING(order_id)
-{% if var('sho_aus_currency') in ['USD','AUD'] %}
-    LEFT JOIN currency ON refund_adjustment_line_refund.refund_date::date = currency.date
-{% endif %}
-GROUP BY 1,2,3,4,5,7,10,11
+    SELECT 
+        order_id, 
+        refund_id,
+        refund_date,
+        quantity_refund,
+        shipping_address_country_code,
+        SUM(amount_discrepancy_refund){{ shopify_fx_agg() }} AS amount_discrepancy_refund,
+        tax_amount_discrepancy_refund{{ shopify_fx_agg() }} AS tax_amount_discrepancy_refund,
+        SUM(amount_shipping_refund){{ shopify_fx_agg() }} AS amount_shipping_refund,
+        SUM(tax_amount_shipping_refund){{ shopify_fx_agg() }} AS tax_amount_shipping_refund,
+        subtotal_refund{{ shopify_fx_agg() }} AS subtotal_refund,
+        total_tax_refund{{ shopify_fx_agg() }} AS total_tax_refund
+    FROM refund_adjustment_line_refund
+    LEFT JOIN order_staging USING(order_id)
+    {{ shopify_fx_join('ON fx.fx_order_id = refund_adjustment_line_refund.order_id') }}
+    GROUP BY refund_adjustment_line_refund.order_id, refund_adjustment_line_refund.refund_id, refund_adjustment_line_refund.refund_date,
+        refund_adjustment_line_refund.quantity_refund, order_staging.shipping_address_country_code,
+        refund_adjustment_line_refund.tax_amount_discrepancy_refund, refund_adjustment_line_refund.subtotal_refund, refund_adjustment_line_refund.total_tax_refund

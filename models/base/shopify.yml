@@ -17,14 +17,13 @@ sources:
       - name: transaction
       - name: order_line
       - name: order_line_refund
+      - name: refund_line_item
       - name: product
       - name: product_variant
       - name: product_tag
       - name: refund
       - name: customer
       - name: customer_tag
-      - name: shop
-      - name: tax_line
 
 models:
   - name: shopify_aus_orders

@@ -1,8 +1,15 @@
+{%- set schema_name,
+        product_table_name, 
+        variant_table_name,
+        tag_table_name
+        = 'shopify_raw_aus', 'product', 'product_variant', 'product_tag'-%}
+
 {%- set product_selected_fields = [
     "id",
     "title",
     "handle",
     "product_type",
+    "vendor",
     "status",
     "created_at",
     "updated_at",
@@ -17,13 +24,14 @@
     "sku"
 ] -%}
 
-{%- set schema_name,
-        product_table_name, 
-        variant_table_name,
-        tag_table_name
-        = 'shopify_raw_aus', 'product', 'product_variant', 'product_tag'-%}
+{%- set product_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'product') -%}
+{%- set variant_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'product_variant') -%}
+{%- set tag_raw_tables = dbt_utils.get_relations_by_pattern('shopify_raw_aus%', 'product_tag') -%}
 
-WITH products AS 
+WITH product_raw_data AS 
+    ({{ dbt_utils.union_relations(relations = product_raw_tables) }}),
+    
+    products AS 
     (SELECT 
 
         {% for column in product_selected_fields -%}
@@ -31,7 +39,11 @@ WITH products AS
         {%- if not loop.last %},{% endif %}
         {% endfor %}
 
-    FROM {{ source(schema_name, product_table_name) }}),
+    FROM product_raw_data
+    ),
+
+    variant_raw_data AS 
+    ({{ dbt_utils.union_relations(relations = variant_raw_tables) }}),
 
     variants AS 
     (SELECT 
@@ -41,14 +53,17 @@ WITH products AS
         {%- if not loop.last %},{% endif %}
         {% endfor %}
 
-    FROM {{ source(schema_name, variant_table_name) }})
+    FROM variant_raw_data
+    )
 
-    {%- set tag_table_exists = check_source_exists(schema_name, tag_table_name) %}
+    {% set tag_table_exists = check_source_exists('shopify_raw_aus','product_tag') -%}
     {%- if tag_table_exists %}
+    , tag_raw_data AS 
+    ({{ dbt_utils.union_relations(relations = tag_raw_tables) }}),
 
-    ,tags AS 
+    tags AS 
     (SELECT product_id, LISTAGG(value, ', ') WITHIN GROUP (ORDER BY index) as product_tags
-    FROM {{ source(schema_name, tag_table_name) }}
+    FROM tag_raw_data
     GROUP BY product_id
     )
     {%- endif %}
